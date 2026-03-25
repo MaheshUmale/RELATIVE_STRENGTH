@@ -3,20 +3,16 @@ from better_mock_data import BetterMockDataLayer
 from strategy_logic import StrategyLogic
 from execution_engine import ExecutionEngine
 
-def run_backtest(n_bars=1000, swing_window=5, vol_sma=20):
-    # For now, using Mock Data since live data is unavailable
+def run_backtest(n_bars=1000, swing_window=3):
     mdl = BetterMockDataLayer()
     df = mdl.generate_mock_data(n_bars=n_bars)
 
     sl = StrategyLogic(swing_window=swing_window)
-    df = sl.find_major_swings(df, 'idx')
-    df = sl.find_major_swings(df, 'ce')
-    df = sl.find_major_swings(df, 'pe')
-    df = sl.detect_phase1_setup(df)
-    df = sl.detect_phase2_trigger(df)
+    for p in ['idx', 'ce', 'pe']:
+        df = sl.find_swings(df, p)
+        df = sl.find_major_swings(df, p)
 
-    # We can override the vol_sma inside detection if needed
-    # (The current StrategyLogic uses 20 by default)
+    df = sl.detect_signals(df)
 
     engine = ExecutionEngine()
     for ts, row in df.iterrows():
@@ -37,7 +33,6 @@ if __name__ == "__main__":
     print("\nStarting Parameter Optimization (Mock)...")
     for window in [3, 5, 7]:
         summary, trades = run_backtest(n_bars=1800, swing_window=window)
-        # Extract PnL from summary (simplified)
         if trades:
             total_pnl = sum(t['net_pnl'] for t in trades)
             print(f"Swing Window={window}: Net PnL={total_pnl:.2f}, Trades={len(trades)}")

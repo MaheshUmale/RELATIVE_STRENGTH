@@ -10,7 +10,7 @@ def run_live_simulation():
     print("Initializing Live Simulation (Candle-by-Candle)...")
 
     # 1. Setup Bot (in mock mode for simulation)
-    bot = RelativeStrengthBot(use_mock=True, swing_window=5)
+    bot = RelativeStrengthBot(use_mock=True, swing_window=3)
 
     # 2. Pre-generate a full day of data (375 minutes in a NIFTY session)
     bmdl = BetterMockDataLayer()
@@ -19,19 +19,17 @@ def run_live_simulation():
     print(f"Starting simulation for {len(full_day_df)} candles...")
 
     # 3. Iterate through data one candle at a time, mimicking live loop
-    for i in range(20, len(full_day_df)): # Start at 20 to have SMA20 context
+    for i in range(50, len(full_day_df)): # Start with enough context for major swings (41*2+1)
         # In a real live loop, we fetch 'n' previous bars at each step
-        # To simulate this, we take a slice up to the current candle 'i'
         current_view_df = full_day_df.iloc[:i+1]
 
-        # Process the data slice to find swings and signals
+        # Process the data slice
         processed_df = bot.process_data(current_view_df)
 
         # Execute the LATEST candle from the processed slice
         last_ts = processed_df.index[-1]
         last_row = processed_df.iloc[-1]
 
-        # process_candle logic is called exactly like in run_live()
         bot.execution.process_candle(last_ts, last_row)
 
         if (i % 50 == 0):

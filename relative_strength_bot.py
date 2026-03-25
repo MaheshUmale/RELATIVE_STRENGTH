@@ -9,7 +9,7 @@ from execution_engine import ExecutionEngine
 from chart_exporter import ChartExporter
 
 class RelativeStrengthBot:
-    def __init__(self, use_mock=True, swing_window=5, slippage=0.001):
+    def __init__(self, use_mock=True, swing_window=3, slippage=0.001):
         if use_mock:
             self.data_layer = BetterMockDataLayer()
         else:
@@ -47,13 +47,12 @@ class RelativeStrengthBot:
     def process_data(self, df):
         """Apply strategy logic to the dataframe"""
         # 1. Identify Swings
-        df = self.strategy.find_major_swings(df, 'idx')
-        df = self.strategy.find_major_swings(df, 'ce')
-        df = self.strategy.find_major_swings(df, 'pe')
+        for p in ['idx', 'ce', 'pe']:
+            df = self.strategy.find_swings(df, p)
+            df = self.strategy.find_major_swings(df, p)
 
-        # 2. Detect Setup and Trigger
-        df = self.strategy.detect_phase1_setup(df)
-        df = self.strategy.detect_phase2_trigger(df)
+        # 2. Detect Signals
+        df = self.strategy.detect_signals(df)
         return df
 
     def export(self, df):
@@ -71,7 +70,6 @@ class RelativeStrengthBot:
         while True:
             now = datetime.now()
             # 1. Check Operational Hours (9:15 to 15:30 IST)
-            # For simplicity, we assume the machine is set to IST or we handle offsets
             current_time = now.time()
             if current_time < pd.to_datetime('09:15').time():
                 print(f"Market not open yet ({now}). Waiting...")
@@ -106,5 +104,6 @@ class RelativeStrengthBot:
             self.execution.process_candle(last_ts, last_row)
 
 if __name__ == "__main__":
-    bot = RelativeStrengthBot(use_mock=False, swing_window=5)
-    bot.run(n_bars=2000)
+    # Standard backtest on mock data
+    bot = RelativeStrengthBot(use_mock=True, swing_window=3)
+    bot.run(n_bars=1000)

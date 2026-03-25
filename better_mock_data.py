@@ -22,49 +22,58 @@ class BetterMockDataLayer:
             timestamps.append(current)
             current += timedelta(minutes=1)
 
-        # Base Index Price
-        index_price = 23400 + np.cumsum(np.random.normal(0, 3, n_bars))
+        # Base Index Price (Random walk with some trend)
+        index_price = 23400 + np.cumsum(np.random.normal(0.2, 3, n_bars))
 
         # CE/PE Prices correlated with Index
         ce_price = 200 + (index_price - index_price[0]) * 0.4 + np.cumsum(np.random.normal(0, 1, n_bars))
         pe_price = 200 - (index_price - index_price[0]) * 0.4 + np.cumsum(np.random.normal(0, 1, n_bars))
 
-        # Volume (with occasional spikes)
+        # Ensure prices are positive
+        ce_price = np.maximum(ce_price, 10)
+        pe_price = np.maximum(pe_price, 10)
+
+        # Volume
         idx_vol = np.random.randint(1000, 5000, n_bars).astype(float)
         ce_vol = np.random.randint(500, 2000, n_bars).astype(float)
         pe_vol = np.random.randint(500, 2000, n_bars).astype(float)
 
-        # Induce some signals
-        # A swing low takes 'swing_window' candles to be confirmed.
-        # Let's induce confirmed swings first.
-        swing_win = 7
+        # Induced Signals for Testing
+        # Bullish: Idx > EMA, CE RS+, CE cross SH, PE break SL
+        # Let's induce one at bar 200
+        if n_bars > 250:
+            i = 200
+            # Induce a CE swing high at i-10
+            ce_price[i-15:i-5] = [180, 185, 190, 195, 200, 195, 190, 185, 180, 175]
+            # Induce a PE swing low at i-10
+            pe_price[i-15:i-5] = [220, 215, 210, 205, 200, 205, 210, 215, 220, 225]
 
-        # User defined format NIFTY260330C23400
-        expiry_str = '260330'
-        atm_strike = 23400
-        self.ce_symbol = f"{self.index_symbol}{expiry_str}C{atm_strike}"
-        self.pe_symbol = f"{self.index_symbol}{expiry_str}P{atm_strike}"
+            # Setup for i
+            index_price[i-20:i+1] = np.linspace(index_price[i-20], index_price[i-20]+50, 21) # Idx Trending Up
+            ce_price[i] = 205 # Crosses 200 (SH)
+            pe_price[i] = 195 # Breaks 200 (SL)
 
-        for i in range(100, n_bars, 200):
-            # Induce a swing low at i
-            # index_price[i] is already low-ish
-            index_price[i-swing_win:i+swing_win+1] = np.linspace(index_price[i-swing_win], index_price[i], swing_win+1).tolist() + np.linspace(index_price[i], index_price[i+swing_win], swing_win+1).tolist()[1:]
-            ce_price[i-swing_win:i+swing_win+1] = np.linspace(ce_price[i-swing_win], ce_price[i], swing_win+1).tolist() + np.linspace(ce_price[i], ce_price[i+swing_win], swing_win+1).tolist()[1:]
+            # RS Context: ensure OptMove > IdxMove
+            # IdxMove: (Idx_close - Idx_low_min) / Idx_low_min
+            # We'll just force it by bumping ce_price a bit more
+            ce_price[i-10:i+1] += 5
 
-            # Now at i + 100, we trigger a setup using the swing at i
-            setup_idx = i + 100
-            if setup_idx + 10 < n_bars:
-                # Index breach
-                index_price[setup_idx] = index_price[i] - 10
-                # CE holds
-                ce_price[setup_idx] = ce_price[i] + 5
-                # PE fails to break high
-                pe_price[setup_idx] = pe_price[setup_idx-1] - 5
+        # Bearish: Idx < EMA, PE RS+, PE cross SH, CE break SL
+        # Let's induce one at bar 400
+        if n_bars > 450:
+            i = 400
+            # Induce a PE swing high at i-10
+            pe_price[i-15:i-5] = [180, 185, 190, 195, 200, 195, 190, 185, 180, 175]
+            # Induce a CE swing low at i-10
+            ce_price[i-15:i-5] = [220, 215, 210, 205, 200, 205, 210, 215, 220, 225]
 
-                # Volume spike for trigger
-                trigger_idx = setup_idx + 2
-                ce_vol[trigger_idx] *= 4
-                ce_price[trigger_idx] = ce_price[trigger_idx-1] + 10
+            # Setup for i
+            index_price[i-20:i+1] = np.linspace(index_price[i-20], index_price[i-20]-50, 21) # Idx Trending Down
+            pe_price[i] = 205 # Crosses 200 (SH)
+            ce_price[i] = 195 # Breaks 200 (SL)
+
+            # RS Context
+            pe_price[i-10:i+1] += 5
 
         data = {
             'idx_open': index_price - 1,
