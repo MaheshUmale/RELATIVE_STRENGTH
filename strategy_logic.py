@@ -2,109 +2,138 @@ import pandas as pd
 import numpy as np
 
 class StrategyLogic:
-    def __init__(self, swing_window=5):
+    def __init__(self, swing_window=3, major_swing_window=41):
         self.swing_window = swing_window
+        self.major_swing_window = major_swing_window
 
-    def find_major_swings(self, df, prefix):
+    def find_swings(self, df, prefix, window=None):
         """
-        Identify Major Swing Highs and Lows using a trailing window to avoid look-ahead bias.
-        A point is a swing low if it's the lowest in the [t-2*window, t] range and was at t-window.
+        Identify Swing Highs and Lows using a centered window to find local extrema,
+        then shifting it to make it 'lagging' and avoid look-ahead bias.
+        As per strategy: Bar i-3 is SH if it's max in [i-6, i].
         """
+        if window is None:
+            window = self.swing_window
+
+        # For a 3-bar lookback, window size is 7 (i-6 to i, with i-3 in middle)
+        window_size = 2 * window + 1
         low_col = f'{prefix}_low'
         high_col = f'{prefix}_high'
 
-        # We detect the swing at 't', but it actually occurred at 't - self.swing_window'
-        # To avoid look-ahead bias in backtesting, we mark it at 't' that 't-window' WAS a swing.
-
-        window_size = 2 * self.swing_window + 1
-
-        # Swing Low detection (confirmed after 'window' candles)
-        is_min = df[low_col].rolling(window=window_size).apply(
-            lambda x: 1 if x.iloc[self.swing_window] == x.min() else 0, raw=False
+        # Detect local extrema at 't - window'
+        is_min = df[low_col].rolling(window=window_size, center=True).apply(
+            lambda x: 1 if x.iloc[window] == x.min() else 0, raw=False
         )
-        # We shift it by 'swing_window' to align the "1" with the candle where it is CONFIRMED
-        # No, we should mark the candle where it HAPPENED but only use it AFTER it's confirmed.
-        # Actually, for the strategy, we need to know the 'prev_swing_low'.
-        # If at candle T, we confirm T-window was a swing low, then 'prev_swing_low' becomes low[T-window].
-
-        df[f'{prefix}_is_swing_low'] = is_min
-
-        # Swing High detection
-        is_max = df[high_col].rolling(window=window_size).apply(
-            lambda x: 1 if x.iloc[self.swing_window] == x.max() else 0, raw=False
+        is_max = df[high_col].rolling(window=window_size, center=True).apply(
+            lambda x: 1 if x.iloc[window] == x.max() else 0, raw=False
         )
-        df[f'{prefix}_is_swing_high'] = is_max
 
-        df.fillna(0, inplace=True)
-        return df
+        # Shift the results so that at index 'i', we know if 'i - window' was a swing.
+        # Rolling with center=True already 'looks ahead'.
+        # To make it available only at 'i', we shift by 'window'.
+        df[f'{prefix}_is_swing_low'] = is_min.shift(window)
+        df[f'{prefix}_is_swing_high'] = is_max.shift(window)
 
-    def detect_phase1_setup(self, df):
-        # Conditions:
-        # 1. Index breaches previous Major Swing Low
-        # 2. CE holds its previous Major Swing Low (current low >= prev swing low)
-        # 3. PE fails to break its previous Major Swing High (current high <= prev swing high)
+        # Track last confirmed swing levels
+        df[f'{prefix}_last_sl'] = df[low_col].shift(window).where(df[f'{prefix}_is_swing_low'] == 1).ffill()
+        df[f'{prefix}_last_sh'] = df[high_col].shift(window).where(df[f'{prefix}_is_swing_high'] == 1).ffill()
 
-        # Track the MOST RECENT CONFIRMED major swing points
-        # When idx_is_swing_low is 1 at time 't', it refers to the low at 't - self.swing_window'
-        df['idx_confirmed_swing_low'] = df['idx_low'].shift(self.swing_window).where(df['idx_is_swing_low'] == 1).ffill()
-        df['ce_confirmed_swing_low'] = df['ce_low'].shift(self.swing_window).where(df['ce_is_swing_low'] == 1).ffill()
-        df['pe_confirmed_swing_high'] = df['pe_high'].shift(self.swing_window).where(df['pe_is_swing_high'] == 1).ffill()
-
-        # Shift to avoid look-ahead. We can only use the confirmed swing from the PREVIOUS candle
-        df['idx_prev_swing_low'] = df['idx_confirmed_swing_low'].shift(1)
-        df['ce_prev_swing_low'] = df['ce_confirmed_swing_low'].shift(1)
-        df['pe_prev_swing_high'] = df['pe_confirmed_swing_high'].shift(1)
-
-        df['setup_valid'] = (
-            (df['idx_low'] < df['idx_prev_swing_low']) &
-            (df['ce_low'] >= df['ce_prev_swing_low']) &
-            (df['pe_high'] <= df['pe_prev_swing_high'])
-        ).astype(int)
+        # Wall SL: Minimum Low of the last 3 bars (including current bar)
+        df[f'{prefix}_wall_sl'] = df[low_col].rolling(window=3).min()
 
         return df
 
-    def detect_phase2_trigger(self, df):
-        # Conditions:
-        # 1. Price Uptick: CE Price > High of candle that formed CE Swing Low
-        # 2. Volume Spike: Vol > 1.5 * SMA(20) of volume
-        # 3. Candle Health: Close > Open (Bullish)
-        # Must occur within 3 candles of Setup
+    def find_major_swings(self, df, prefix):
+        window = self.major_swing_window
+        window_size = 2 * window + 1
+        low_col = f'{prefix}_low'
+        high_col = f'{prefix}_high'
 
-        # High of the candle that formed the most recent confirmed CE swing low
-        df['ce_swing_low_high'] = df['ce_high'].shift(self.swing_window).where(df['ce_is_swing_low'] == 1).ffill().shift(1)
+        is_min = df[low_col].rolling(window=window_size, center=True).apply(
+            lambda x: 1 if x.iloc[window] == x.min() else 0, raw=False
+        )
+        is_max = df[high_col].rolling(window=window_size, center=True).apply(
+            lambda x: 1 if x.iloc[window] == x.max() else 0, raw=False
+        )
 
-        # Volume SMA
-        df['ce_vol_sma'] = df['ce_volume'].rolling(window=20).mean()
+        df[f'{prefix}_is_major_sl'] = is_min.shift(window)
+        df[f'{prefix}_is_major_sh'] = is_max.shift(window)
 
-        # Trigger Condition (at candle close)
-        df['trigger_signal'] = (
-            (df['ce_close'] > df['ce_swing_low_high']) &
-            (df['ce_volume'] > 1.5 * df['ce_vol_sma']) &
-            (df['ce_close'] > df['ce_open'])
-        ).astype(int)
+        df[f'{prefix}_last_major_sl'] = df[low_col].shift(window).where(df[f'{prefix}_is_major_sl'] == 1).ffill()
+        df[f'{prefix}_last_major_sh'] = df[high_col].shift(window).where(df[f'{prefix}_is_major_sh'] == 1).ffill()
 
-        # Check if Trigger occurs within 3 candles of Setup
-        # We look back at the most recent 3 candles (including current) to see if setup_valid was ever 1
-        df['setup_recently_valid'] = df['setup_valid'].rolling(window=3).max().fillna(0)
+        return df
 
-        df['entry_signal'] = (df['trigger_signal'] == 1) & (df['setup_recently_valid'] == 1)
+    def apply_indicators(self, df):
+        # 1. 9 EMA for Index
+        df['idx_ema9'] = df['idx_close'].ewm(span=9, adjust=False).mean()
+
+        # 2. RS Context (10-bar rolling)
+        for p in ['idx', 'ce', 'pe']:
+            low_min = df[f'{p}_low'].rolling(window=10).min()
+            df[f'{p}_move'] = (df[f'{p}_close'] - low_min) / (low_min + 1e-9)
+
+        df['ce_rs_divergence'] = df['ce_move'] > df['idx_move']
+        df['pe_rs_divergence'] = df['pe_move'] > df['idx_move']
+
+        return df
+
+    def detect_signals(self, df):
+        df = self.apply_indicators(df)
+
+        # Time Filter: 9:20 AM to 3:16 PM IST
+        # Assuming df index is datetime
+        df['time_valid'] = (df.index.time >= pd.to_datetime('09:20').time()) & \
+                           (df.index.time <= pd.to_datetime('15:16').time())
+
+        # Bullish Signal (CE Buy)
+        # 1. Trend: Index > 9 EMA
+        # 2. RS: CE positive RS vs Index
+        # 3. Paired Breakout: CE crosses last SH, PE breaks last SL (3-bar buffer)
+
+        ce_cross_sh = (df['ce_close'] > df['ce_last_sh']) & (df['ce_close'].shift(1) <= df['ce_last_sh'].shift(1))
+        # PE breaks below last SL within a 3-bar buffer
+        pe_break_sl = (df['pe_close'] < df['pe_last_sl']).rolling(window=4).max().fillna(0).astype(bool)
+
+        df['bullish_signal'] = (
+            df['time_valid'] &
+            (df['idx_close'] > df['idx_ema9']) &
+            df['ce_rs_divergence'] &
+            ce_cross_sh &
+            pe_break_sl
+        )
+
+        # Bearish Signal (PE Buy)
+        pe_cross_sh = (df['pe_close'] > df['pe_last_sh']) & (df['pe_close'].shift(1) <= df['pe_last_sh'].shift(1))
+        ce_break_sl = (df['ce_close'] < df['ce_last_sl']).rolling(window=4).max().fillna(0).astype(bool)
+
+        df['bearish_signal'] = (
+            df['time_valid'] &
+            (df['idx_close'] < df['idx_ema9']) &
+            df['pe_rs_divergence'] &
+            pe_cross_sh &
+            ce_break_sl
+        )
+
+        # Entry signal for bot
+        df['entry_signal'] = df['bullish_signal'] | df['bearish_signal']
+        # Map back for execution engine
+        df['signal_type'] = np.where(df['bullish_signal'], 'CE', np.where(df['bearish_signal'], 'PE', None))
 
         return df
 
 if __name__ == "__main__":
-    # Test with mock data
-    from mock_data import MockDataLayer
-    mdl = MockDataLayer()
-    df = mdl.generate_mock_data(200)
+    # Minimal test
+    from better_mock_data import BetterMockDataLayer
+    mdl = BetterMockDataLayer()
+    df = mdl.generate_mock_data(500)
 
-    sl = StrategyLogic(swing_window=3)
-    df = sl.find_major_swings(df, 'idx')
-    df = sl.find_major_swings(df, 'ce')
-    df = sl.find_major_swings(df, 'pe')
-    df = sl.detect_phase1_setup(df)
-    df = sl.detect_phase2_trigger(df)
+    sl = StrategyLogic()
+    for p in ['idx', 'ce', 'pe']:
+        df = sl.find_swings(df, p)
+        df = sl.find_major_swings(df, p)
 
-    signals = df[df['entry_signal'] == True]
-    print(f"Detected {len(signals)} signals.")
-    if not signals.empty:
-        print(signals[['idx_close', 'ce_close', 'pe_close', 'entry_signal']].head())
+    df = sl.detect_signals(df)
+    print(f"Signals detected: {df['entry_signal'].sum()}")
+    if df['entry_signal'].any():
+        print(df[df['entry_signal']][['signal_type', 'ce_close', 'pe_close']])
