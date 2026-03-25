@@ -102,12 +102,24 @@ The system is implemented across several Python modules for modularity and maint
 - **`backtest_runner.py`**: A utility script for running backtests and parameter optimization on historical data.
 
 ## 8. Usage Instructions
-1. **Dependencies:** Install requirements via `pip install pandas rookiepy websocket-client requests`.
+1. **Dependencies:** Install requirements via:
+   ```bash
+   pip install pandas rookiepy websocket-client requests
+   pip install --upgrade --no-cache-dir git+https://github.com/MaheshUmale/TvDataFeed_modified.git
+   ```
 2. **Configuration:** Set `use_mock=False` in `relative_strength_bot.py` for live data (requires browser cookies).
 3. **Execution:** Run `python3 relative_strength_bot.py` to start the bot.
 4. **Backtest:** Run `python3 backtest_runner.py` to evaluate performance on mock or historical data.
+5. **Live Mode:** To keep the bot running for the entire day, the `run_live()` method in `RelativeStrengthBot` can be used. It waits for each 1-minute candle completion and processes it in real-time.
 
-## 9. Backtest Results (Mock Data)
+## 9. Live Test Simulation
+To verify the bot's behavior for a complete day candle-by-candle, use:
+```bash
+python3 live_test_sim.py
+```
+This script simulates a full trading day (9:15 to 15:30 IST) by iterating through historical/mock data one bar at a time, exactly as it would in a live environment.
+
+## 10. Backtest Results (Mock Data)
 Initial backtests on a 5-day mock dataset with a `swing_window` of 7 showed:
 - **Total PnL:** -64.07 (on mock volatility)
 - **Win Rate:** ~30% (dependent on market conditions)
