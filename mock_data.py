@@ -3,10 +3,10 @@ import numpy as np
 from datetime import datetime, timedelta
 
 class MockDataLayer:
-    def __init__(self, index_symbol='NIFTY', ce_symbol='NIFTY_CE', pe_symbol='NIFTY_PE'):
+    def __init__(self, index_symbol='NIFTY', expiry_str='260330', atm_strike=23400):
         self.index_symbol = index_symbol
-        self.ce_symbol = ce_symbol
-        self.pe_symbol = pe_symbol
+        self.ce_symbol = f"{index_symbol}{expiry_str}C{atm_strike}"
+        self.pe_symbol = f"{index_symbol}{expiry_str}P{atm_strike}"
 
     def generate_mock_data(self, n_bars=100):
         # Generate 1-minute timestamps
