@@ -13,6 +13,8 @@ class ChartExporter:
         Export a chart for a single trade showing Entry, SL, TP1, and Exit.
         df should contain the OHLCV data for the trade duration (+ some buffer).
         """
+        prefix = trade.get('side', 'CE').lower()
+
         # Define window (from 30 mins before entry to 30 mins after exit)
         start_time = trade['entry_time'] - pd.Timedelta(minutes=30)
         exit_time = trade.get('exit_time', df.index[-1])
@@ -25,8 +27,8 @@ class ChartExporter:
 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), gridspec_kw={'height_ratios': [3, 1]})
 
-        # Plot Option Price (CE or PE - here we use CE as target in spec)
-        ax1.plot(trade_df.index, trade_df['ce_close'], label='Option Price', color='blue', alpha=0.6)
+        # Plot Option Price
+        ax1.plot(trade_df.index, trade_df[f'{prefix}_close'], label=f'{trade.get("side", "CE")} Price', color='blue', alpha=0.6)
 
         # Mark Entry
         ax1.scatter(trade['entry_time'], trade['entry_price'], color='green', marker='^', s=100, label='Entry')
@@ -36,7 +38,7 @@ class ChartExporter:
         ax1.axhline(trade['stop_loss'], color='red', linestyle='--', alpha=0.5, label='SL')
 
         # Mark Target 1 (TP1)
-        ax1.axhline(trade['target_1'], color='orange', linestyle='--', alpha=0.5, label='TP1 (2R)')
+        ax1.axhline(trade['target_1'], color='orange', linestyle='--', alpha=0.5, label='TP1')
 
         # Mark Exit
         if 'exit_time' in trade:
@@ -49,10 +51,10 @@ class ChartExporter:
         ax1_idx.set_ylabel('Index Price')
 
         # Plot Volume
-        ax2.bar(trade_df.index, trade_df['ce_volume'], color='blue', alpha=0.3, label='Volume')
+        ax2.bar(trade_df.index, trade_df[f'{prefix}_volume'], color='blue', alpha=0.3, label='Volume')
 
         # Formatting
-        ax1.set_title(f"Trade Analysis - Entry @ {trade['entry_time']}")
+        ax1.set_title(f"{trade.get('side', 'CE')} Trade Analysis - Entry @ {trade['entry_time']}")
         ax1.set_ylabel('Option Price')
         ax1.legend(loc='upper left')
         ax2.set_ylabel('Volume')
@@ -62,25 +64,3 @@ class ChartExporter:
         plt.savefig(filepath)
         plt.close()
         print(f"Chart exported to {filepath}")
-
-if __name__ == "__main__":
-    # Test chart exporter with dummy data
-    from better_mock_data import BetterMockDataLayer
-    from datetime import datetime, timedelta
-
-    bmdl = BetterMockDataLayer()
-    df = bmdl.generate_mock_data(200)
-
-    trade = {
-        'entry_time': df.index[50],
-        'entry_price': df.iloc[50]['ce_close'],
-        'stop_loss': df.iloc[50]['ce_close'] - 10,
-        'target_1': df.iloc[50]['ce_close'] + 20,
-        'exit_time': df.index[80],
-        'exit_price': df.iloc[80]['ce_close'],
-        'reason': 'TP1 HIT',
-        'risk': 10
-    }
-
-    exporter = ChartExporter()
-    exporter.export_trade_chart(trade, df)
