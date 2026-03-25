@@ -100,24 +100,27 @@ The system is implemented across several Python modules for modularity and maint
 - **`execution_engine.py`**: Manages trade entries, exits (TP1/TP2), trailing stops, and PnL calculations with slippage.
 - **`relative_strength_bot.py`**: The main entry point that integrates all components into a functional bot.
 - **`backtest_runner.py`**: A utility script for running backtests and parameter optimization on historical data.
+- **`live_test_sim.py`**: Simulates a complete trading day candle-by-candle to verify real-time logic.
+- **`chart_exporter.py`**: Visualizes trades with Entry, SL, TP1, and Exit markers.
+- **`better_mock_data.py`**: Generates realistic price action and signals for testing.
 
 ## 8. Usage Instructions
 1. **Dependencies:** Install requirements via:
    ```bash
-   pip install pandas rookiepy websocket-client requests
+   pip install pandas rookiepy websocket-client requests matplotlib
    pip install --upgrade --no-cache-dir git+https://github.com/MaheshUmale/TvDataFeed_modified.git
    ```
 2. **Configuration:** Set `use_mock=False` in `relative_strength_bot.py` for live data (requires browser cookies).
-3. **Execution:** Run `python3 relative_strength_bot.py` to start the bot.
-4. **Backtest:** Run `python3 backtest_runner.py` to evaluate performance on mock or historical data.
-5. **Live Mode:** To keep the bot running for the entire day, the `run_live()` method in `RelativeStrengthBot` can be used. It waits for each 1-minute candle completion and processes it in real-time.
+3. **Execution:** Run `python3 relative_strength_bot.py` to start the bot. By default, it runs a backtest on mock data.
+4. **Backtest & Optimization:** Run `python3 backtest_runner.py` to evaluate performance across different parameters (e.g., `swing_window`).
+5. **Live Mode:** Modify the `if __name__ == "__main__":` block in `relative_strength_bot.py` to call `bot.run_live()` instead of `bot.run()`. This starts the real-time monitoring loop (9:15 - 15:30 IST).
 
 ## 9. Live Test Simulation
 To verify the bot's behavior for a complete day candle-by-candle, use:
 ```bash
 python3 live_test_sim.py
 ```
-This script simulates a full trading day (9:15 to 15:30 IST) by iterating through historical/mock data one bar at a time, exactly as it would in a live environment.
+This script simulates a full trading day (9:15 to 15:30 IST) by iterating through historical/mock data one bar at a time, exactly as it would in a live environment. It automatically generates `trades.csv` and visual charts in the `trade_charts/` directory.
 
 ## 10. Backtest Results (Mock Data)
 Initial backtests on a 5-day mock dataset with a `swing_window` of 7 showed:
