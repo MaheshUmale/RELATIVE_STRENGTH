@@ -119,6 +119,15 @@ class ExecutionEngine:
         )
         return summary
 
+    def export_trades_to_csv(self, filename='trades.csv'):
+        if not self.trades:
+            print("No trades to export.")
+            return
+
+        df = pd.DataFrame(self.trades)
+        df.to_csv(filename, index=False)
+        print(f"Trades exported to {filename}")
+
 if __name__ == "__main__":
     # Test with logic results
     from mock_data import MockDataLayer

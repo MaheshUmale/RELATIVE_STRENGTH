@@ -6,6 +6,7 @@ from mock_data import MockDataLayer
 from better_mock_data import BetterMockDataLayer
 from strategy_logic import StrategyLogic
 from execution_engine import ExecutionEngine
+from chart_exporter import ChartExporter
 
 class RelativeStrengthBot:
     def __init__(self, use_mock=True, swing_window=5, slippage=0.001):
@@ -18,7 +19,7 @@ class RelativeStrengthBot:
         self.execution = ExecutionEngine(slippage=slippage)
         self.use_mock = use_mock
 
-    def run(self, n_bars=1000):
+    def run(self, n_bars=1000, export_results=True):
         print(f"Starting Relative Strength Bot (Mock={self.use_mock})...")
 
         if self.use_mock:
@@ -45,6 +46,13 @@ class RelativeStrengthBot:
 
         print("\nBacktest Complete.")
         print(self.execution.get_summary())
+
+        if export_results and self.execution.trades:
+            print("Exporting results...")
+            self.execution.export_trades_to_csv()
+            chart_exporter = ChartExporter()
+            for trade in self.execution.trades:
+                chart_exporter.export_trade_chart(trade, df)
 
 if __name__ == "__main__":
     bot = RelativeStrengthBot(use_mock=True, swing_window=5)
