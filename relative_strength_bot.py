@@ -19,7 +19,7 @@ class RelativeStrengthBot:
         self.execution = ExecutionEngine(slippage=slippage)
         self.use_mock = use_mock
 
-    def run(self, n_bars=1000, export_results=True):
+    def run(self, n_bars=5000, export_results=True):
         print(f"Starting Relative Strength Bot (Mock={self.use_mock})...")
 
         if self.use_mock:
@@ -55,5 +55,5 @@ class RelativeStrengthBot:
                 chart_exporter.export_trade_chart(trade, df)
 
 if __name__ == "__main__":
-    bot = RelativeStrengthBot(use_mock=True, swing_window=5)
+    bot = RelativeStrengthBot(use_mock=False, swing_window=5)
     bot.run(n_bars=2000)

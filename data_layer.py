@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 class DataLayer:
-    def __init__(self, index_symbol='NIFTY', exchange='NSE', option_exchange='NFO'):
+    def __init__(self, index_symbol='NIFTY', exchange='NSE', option_exchange='NSE'):
         self.tv = TvDatafeed()
         self.session = requests.Session()
         self.index_symbol = index_symbol
