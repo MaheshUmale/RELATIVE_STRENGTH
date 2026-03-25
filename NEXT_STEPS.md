@@ -5,7 +5,7 @@ Following the initial implementation and backtesting on mock data, these are the
 ## 1. Authentication and Live Data Integration
 - **Resolve Cookie Issue:** The `rookiepy` and `TvDatafeed` library require access to browser cookies to authenticate with TradingView. In the current sandbox environment, this is restricted. For production, the agent must be run in an environment where it can access these cookies or use a paid TradingView plan with an API token if possible.
 - **Symbol Search Fix:** The current `search_symbol` method in `tvDatafeed/main.py` is being blocked with a 403 Forbidden error. This needs to be resolved by better header management or using a more robust search API.
-- **NFO Ticker Formats:** The bot currently uses the format `INDEXYYMMDDCSTRIKE` (e.g., `NIFTY260330C23400`). Ensure this aligns with TradingView's `NFO:` exchange requirements for all instrument types.
+- **NFO Ticker Formats:** The bot currently uses the format `INDEXYYMMDDCSTRIKE` (e.g., `NIFTY260330C23400`). Ensure this aligns with TradingView's `NSE:` exchange requirements for all instrument types.  THERE is NO NDO EXCHANGE
 
 ## 2. Strategy Expansion and Optimization
 - **Implement Bearish Setup:** The current logic focuses on bullish signals (Relative Strength in Call Options). Implement the symmetric bearish setup (Relative Weakness in Put Options) where the Index breaks a swing high but PE premiums hold.
