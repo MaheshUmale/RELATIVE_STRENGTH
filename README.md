@@ -89,3 +89,29 @@ if (index_low < prev_index_swing_low) and (ce_low >= prev_ce_swing_low):
 * **Time Filter:** Do not initiate new setups after 14:45 IST (Intraday volatility risk).
 * **Slippage Buffer:** Add a 0.1% buffer to PnL calculations to account for real-world fills in liquid Indian Option markets.
 * **Strike Refresh:** Re-fetch ATM/ITM symbols every 30 minutes to ensure the Agent is always tracking the "Active" contract.
+
+---
+
+## 7. Implementation Overview
+The system is implemented across several Python modules for modularity and maintainability:
+
+- **`data_layer.py`**: Handles data fetching and synchronization using `tvDatafeed`. Contains `DataLayer` and `MockDataLayer`.
+- **`strategy_logic.py`**: Implements the three-phase strategy logic (Swing Detection, Setup, and Trigger).
+- **`execution_engine.py`**: Manages trade entries, exits (TP1/TP2), trailing stops, and PnL calculations with slippage.
+- **`relative_strength_bot.py`**: The main entry point that integrates all components into a functional bot.
+- **`backtest_runner.py`**: A utility script for running backtests and parameter optimization on historical data.
+
+## 8. Usage Instructions
+1. **Dependencies:** Install requirements via `pip install pandas rookiepy websocket-client requests`.
+2. **Configuration:** Set `use_mock=False` in `relative_strength_bot.py` for live data (requires browser cookies).
+3. **Execution:** Run `python3 relative_strength_bot.py` to start the bot.
+4. **Backtest:** Run `python3 backtest_runner.py` to evaluate performance on mock or historical data.
+
+## 9. Backtest Results (Mock Data)
+Initial backtests on a 5-day mock dataset with a `swing_window` of 7 showed:
+- **Total PnL:** -64.07 (on mock volatility)
+- **Win Rate:** ~30% (dependent on market conditions)
+- **Max PnL:** +71.48
+- **Min PnL:** -40.01
+
+See `NEXT_STEPS.md` for optimization recommendations.
