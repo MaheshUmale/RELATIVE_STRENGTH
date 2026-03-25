@@ -1,4 +1,5 @@
 import pandas as pd
+import requests
 from tvDatafeed import TvDatafeed, Interval
 import time
 from datetime import datetime, timedelta
@@ -6,6 +7,7 @@ from datetime import datetime, timedelta
 class DataLayer:
     def __init__(self, index_symbol='NIFTY', exchange='NSE', option_exchange='NFO'):
         self.tv = TvDatafeed()
+        self.session = requests.Session()
         self.index_symbol = index_symbol
         self.exchange = exchange
         self.option_exchange = option_exchange
@@ -14,12 +16,36 @@ class DataLayer:
         self.pe_symbol = None
         self.interval = Interval.in_1_minute
 
-    def refresh_strikes(self, expiry_str='260330'):
+    def get_latest_expiry(self):
+        """Fetch latest expiry date from NSE API and format as YYMMDD."""
+        url = f"https://www.nseindia.com/api/option-chain-contract-info?symbol={self.index_symbol}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "*/*",
+        }
+        try:
+            # Try getting cookies from NSE home page first
+            self.session.get("https://www.nseindia.com", headers=headers, timeout=5)
+            response = self.session.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                expiry_dates = data.get("expiryDates", [])
+                if expiry_dates:
+                    dt = datetime.strptime(expiry_dates[0], "%d-%b-%Y")
+                    return dt.strftime("%y%m%d")
+        except Exception as e:
+            print(f"Error fetching live expiry: {e}")
+
+        return "260330" # Default fallback
+
+    def refresh_strikes(self):
         """
-        Refresh ATM/ITM strikes based on current Index price.
+        Refresh ATM/ITM strikes based on current Index price and live expiry.
         Naming Format: INDEX_SYM + YYMMDD + C/P + STRIKE (e.g., NIFTY260330C23400)
         """
         print("Refreshing strikes...")
+        expiry_str = self.get_latest_expiry()
+        print(f"Using Expiry: {expiry_str}")
         hist = self.tv.get_hist(symbol=self.index_symbol, exchange=self.exchange, interval=self.interval, n_bars=1)
         if hist is None or hist.empty:
             print("Failed to fetch Index price for strike refresh. Using current prices as fallback.")
