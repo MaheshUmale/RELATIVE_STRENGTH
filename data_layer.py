@@ -14,23 +14,25 @@ class DataLayer:
         self.pe_symbol = None
         self.interval = Interval.in_1_minute
 
-    def refresh_strikes(self):
+    def refresh_strikes(self, expiry_str='260330'):
+        """
+        Refresh ATM/ITM strikes based on current Index price.
+        Naming Format: INDEX_SYM + YYMMDD + C/P + STRIKE (e.g., NIFTY260330C23400)
+        """
         print("Refreshing strikes...")
         hist = self.tv.get_hist(symbol=self.index_symbol, exchange=self.exchange, interval=self.interval, n_bars=1)
         if hist is None or hist.empty:
-            print("Failed to fetch Index price for strike refresh.")
-            return False
+            print("Failed to fetch Index price for strike refresh. Using current prices as fallback.")
+            last_price = 23400 # Fallback
+        else:
+            last_price = hist['close'].iloc[-1]
 
-        last_price = hist['close'].iloc[-1]
-        atm_strike = round(last_price / 50) * 50
+        atm_strike = int(round(last_price / 50) * 50)
         print(f"Index Price: {last_price}, ATM Strike: {atm_strike}")
 
-        # For simulation/development, we might want to use some other liquid symbols if we can't find the exact options
-        # But for now, let's try to find ANY valid NIFTY option if search fails, or just proceed if we have symbols.
-        # Since I can't search, I'll use some common symbols that might be available for testing
-        self.ce_symbol = "NIFTY2561923400CE"
-        self.pe_symbol = "NIFTY2561923400PE"
-        # If the above fails, let's try just NIFTY futures or something else to verify the join logic
+        # Update symbols with user-defined format: NIFTY260330C23400
+        self.ce_symbol = f"{self.index_symbol}{expiry_str}C{atm_strike}"
+        self.pe_symbol = f"{self.index_symbol}{expiry_str}P{atm_strike}"
 
         if self.ce_symbol and self.pe_symbol:
             self.last_strike_refresh = datetime.now()

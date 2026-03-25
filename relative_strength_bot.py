@@ -47,5 +47,5 @@ class RelativeStrengthBot:
         print(self.execution.get_summary())
 
 if __name__ == "__main__":
-    bot = RelativeStrengthBot(use_mock=True, swing_window=7)
+    bot = RelativeStrengthBot(use_mock=True, swing_window=5)
     bot.run(n_bars=2000)

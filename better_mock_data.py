@@ -38,6 +38,13 @@ class BetterMockDataLayer:
         # A swing low takes 'swing_window' candles to be confirmed.
         # Let's induce confirmed swings first.
         swing_win = 7
+
+        # User defined format NIFTY260330C23400
+        expiry_str = '260330'
+        atm_strike = 23400
+        self.ce_symbol = f"{self.index_symbol}{expiry_str}C{atm_strike}"
+        self.pe_symbol = f"{self.index_symbol}{expiry_str}P{atm_strike}"
+
         for i in range(100, n_bars, 200):
             # Induce a swing low at i
             # index_price[i] is already low-ish
