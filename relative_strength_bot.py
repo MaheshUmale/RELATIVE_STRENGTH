@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 from data_layer import DataLayer
 from mock_data import MockDataLayer
-from better_mock_data import BetterMockDataLayer
+# from better_mock_data import BetterMockDataLayer
 from strategy_logic import StrategyLogic
 from execution_engine import ExecutionEngine
 from chart_exporter import ChartExporter
@@ -11,7 +11,7 @@ from chart_exporter import ChartExporter
 class RelativeStrengthBot:
     def __init__(self, use_mock=True, swing_window=3, slippage=0.001):
         if use_mock:
-            self.data_layer = BetterMockDataLayer()
+            self.data_layer =  None # BetterMockDataLayer()
         else:
             self.data_layer = DataLayer()
 
@@ -105,5 +105,5 @@ class RelativeStrengthBot:
 
 if __name__ == "__main__":
     # Standard backtest on mock data
-    bot = RelativeStrengthBot(use_mock=True, swing_window=3)
+    bot = RelativeStrengthBot(use_mock=False, swing_window=3)
     bot.run(n_bars=1000)
